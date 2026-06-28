@@ -1,0 +1,25 @@
+[
+  {
+    "id": "0005",
+    "title": "Milk",
+    "price": 30000,
+    "discountPrice": 25000,
+    "tags": "Milk",
+    "image": "https://invieorganicshop.web.app/images/milk-image.jpeg",
+    "description": "Fresh organic cow milk.",
+    "vegetarian": true,
+    "stock": 50,
+    "isNew": true
+  },
+  {
+    "id": "0006",
+    "title": "Cheese",
+    "price": 60000,
+    "tags": "Cheese",
+    "image": "https://invieorganicshop.web.app/images/cheese.jpeg",
+    "description": "Aged cheddar cheese.",
+    "vegetarian": true,
+    "stock": 20,
+    "isNew": false
+  }
+]
