@@ -1,0 +1,66 @@
+function loadFooter() {
+    const path = window.location.pathname;
+    const currentPage = path.substring(path.lastIndexOf('/') + 1) || "index.html";
+    
+    const footerHTML = `
+    <style>
+        .mobile-footer {
+            position: fixed; bottom: 0; left: 0; right: 0; height: 65px;
+            background: #fff; display: flex; justify-content: space-around;
+            align-items: center; box-shadow: 0 -2px 10px rgba(0,0,0,0.1);
+            z-index: 9999; border-top: 1px solid #eee;
+        }
+        .footer-item { 
+            text-decoration: none !important; color: #000 !important; 
+            font-size: 13px !important; display: flex; flex-direction: column; 
+            align-items: center; gap: 2px; font-variant: small-caps; 
+            font-weight: 900 !important; font-family: 'Roboto', sans-serif !important;
+            line-height: 1.2; cursor: pointer;
+        }
+        .footer-item.active { color: #28a745 !important; }
+        .footer-item span { font-size: 22px !important; color: #000 !important; }
+        .footer-item.active span { color: #28a745 !important; }
+
+        /* Overlay & Slide-up Sheet */
+        #info-overlay { 
+            position: fixed; inset: 0; background: rgba(0,0,0,0.5); 
+            display: none; z-index: 10000; align-items: flex-end; 
+        }
+        .info-content { 
+            background: #fff; width: 100%; border-radius: 20px 20px 0 0; padding: 25px;
+            animation: slideUp 0.3s ease-out;
+        }
+        @keyframes slideUp { from { transform: translateY(100%); } to { transform: translateY(0); } }
+        .info-link { 
+            display: block; padding: 18px 0; font-size: 16px; font-weight: 900; 
+            text-decoration: none; color: #333; border-bottom: 1px solid #eee; 
+        }
+    </style>
+
+    <div class="mobile-footer">
+        <a href="index.html" class="footer-item ${currentPage === 'index.html' ? 'active' : ''}"><span>🏠</span>home</a>
+        <a href="menu.html" class="footer-item ${currentPage === 'menu.html' ? 'active' : ''}"><span>🍽️</span>menu</a>
+        <a href="cart.html" class="footer-item ${currentPage === 'cart.html' ? 'active' : ''}"><span>🛒</span>cart</a>
+        <a href="profile.html" class="footer-item ${currentPage === 'profile.html' ? 'active' : ''}"><span>👤</span>profile</a>
+        <div class="footer-item" onclick="document.getElementById('info-overlay').style.display='flex'"><span>ℹ️</span>info</div>
+    </div>
+
+    <div id="info-overlay" onclick="this.style.display='none'">
+        <div class="info-content" onclick="event.stopPropagation()">
+            <h3 style="margin-top:0; font-family: 'Roboto', sans-serif;">Restaurant Info</h3>
+            <a href="about.html" class="info-link">About Us</a>
+            <a href="contact.html" class="info-link">Contact Us</a>
+            <a href="map.html" class="info-link">View Map</a>
+            <button style="width:100%; padding:15px; background:#28a745; color:white; border:none; border-radius:12px; margin-top:20px; font-weight:900; font-size:16px;" onclick="document.getElementById('info-overlay').style.display='none'">Close</button>
+        </div>
+    </div>`;
+
+    document.body.insertAdjacentHTML('beforeend', footerHTML);
+}
+
+if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', loadFooter);
+} else {
+    loadFooter();
+}
+

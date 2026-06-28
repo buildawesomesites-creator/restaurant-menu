@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Admin Dashboard</title>
+    <style>
+        :root { --primary: #28a745; --danger: #dc3545; --bg: #f4f7f6; }
+        body { font-family: 'Segoe UI', Tahoma, sans-serif; background: var(--bg); margin: 0; padding: 15px; }
+        
+        .dashboard-container { max-width: 500px; margin: 0 auto; background: white; padding: 20px; border-radius: 16px; box-shadow: 0 4px 12px rgba(0,0,0,0.08); }
+        .header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
+        #welcome-message { font-size: 1.25rem; font-weight: 700; color: #333; }
+        .btn-logout-top { background: #eee; color: #555; border: none; padding: 6px 16px; border-radius: 20px; cursor: pointer; font-size: 0.85rem; font-weight: 600; }
+        
+        /* Search and Tabs */
+        .search-box { width: 100%; padding: 12px; margin-bottom: 20px; border: 1.5px solid #ddd; border-radius: 8px; box-sizing: border-box; }
+        .tabs { display: flex; gap: 10px; margin-bottom: 20px; }
+        .tab-btn { flex: 1; padding: 10px; border: none; background: #eee; border-radius: 8px; cursor: pointer; font-weight: bold; }
+        .tab-btn.active { background: var(--primary); color: white; }
+        
+        .order-card { border: 1px solid #eee; padding: 16px; margin-bottom: 16px; border-radius: 12px; display: flex; flex-direction: column; gap: 8px; }
+        .product-list { display: flex; flex-direction: column; gap: 10px; margin: 10px 0; }
+        .product-item { display: flex; align-items: center; gap: 12px; }
+        .product-img { width: 50px; height: 50px; object-fit: cover; border-radius: 8px; border: 1px solid #eee; }
+        .btn-success { background: var(--primary); color: white; border: none; padding: 12px; border-radius: 8px; cursor: pointer; font-weight: bold; margin-top: 10px; }
+        .btn-pending { background: #ffc107; color: #000; border: none; padding: 12px; border-radius: 8px; cursor: pointer; font-weight: bold; margin-top: 10px; }
+    </style>
+</head>
+<body>
+
+<div class="dashboard-container">
+    <div class="header">
+        <div id="welcome-message">Loading...</div>
+        <button class="btn-logout-top" onclick="handleLogout()">Sign Out</button>
+    </div>
+
+    <input type="text" id="search-input" class="search-box" placeholder="Search by Order ID, Name, or Email..." oninput="applyFilter()">
+
+    <div class="tabs">
+        <button id="tab-pending" class="tab-btn active" onclick="switchTab('pending', this)">Pending</button>
+        <button id="tab-success" class="tab-btn" onclick="switchTab('success', this)">Success</button>
+    </div>
+
+    <div id="order-history">Loading orders...</div>
+</div>
+
+<script type="module">
+    import { auth, db } from "./firebase-config.js";
+    import { doc, getDoc, updateDoc, collection, getDocs, query, orderBy } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore.js";
+    import { onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-auth.js";
+
+    let allOrders = [];
+    let currentStatus = 'pending';
+
+    window.switchTab = (status, btn) => {
+        document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        currentStatus = status;
+        applyFilter();
+    };
+
+    window.applyFilter = () => {
+        const searchTerm = document.getElementById("search-input").value.toLowerCase();
+        
+        // Filter by Status AND Search Term
+        const filtered = allOrders.filter(o => {
+            const matchesStatus = (o.status || 'pending').toLowerCase() === currentStatus.toLowerCase();
+            const c = o.customer || {};
+            const matchesSearch = 
+                (o.orderId || "").toLowerCase().includes(searchTerm) ||
+                (c.name || "").toLowerCase().includes(searchTerm) ||
+                (o.userEmail || "").toLowerCase().includes(searchTerm);
+            
+            return matchesStatus && matchesSearch;
+        });
+        
+        renderList(filtered);
+    };
+
+    function renderList(list) {
+        let html = list.map(o => {
+            const c = o.customer || {};
+            const itemsHtml = o.items ? o.items.map(i => `
+                <div class="product-item">
+                    <img src="${i.image}" class="product-img">
+                    <span>${i.title} (x${i.qty})</span>
+                </div>
+            `).join('') : "";
+            
+            return `
+                <div class="order-card">
+                    <div><b>Order:</b> ${o.orderId || 'N/A'}</div>
+                    <div><b>Customer:</b> ${c.name || 'N/A'}</div>
+                    <div><b>Email:</b> ${o.userEmail || 'N/A'}</div>
+                    <div><b>Phone:</b> ${c.phone || 'N/A'}</div>
+                    <div><b>Address:</b> ${c.address || ''}, ${c.city || ''}</div>
+                    <div style="color:#555;"><b>Total:</b> ${o.total?.toLocaleString() || 0} đ</div>
+                    <div class="product-list">${itemsHtml}</div>
+                    ${currentStatus === 'pending' 
+                        ? `<button class="btn-success" onclick="updateStatus('${o.docId}', 'success')">Mark Success</button>` 
+                        : `<button class="btn-pending" onclick="updateStatus('${o.docId}', 'pending')">Move to Pending</button>`}
+                </div>`;
+        }).join('');
+        document.getElementById("order-history").innerHTML = html || `<p>No matching ${currentStatus} orders found.</p>`;
+    }
+
+    window.updateStatus = async (id, newStatus) => {
+        try {
+            await updateDoc(doc(db, "orders", id), { status: newStatus });
+            alert("Order updated!");
+            location.reload();
+        } catch (e) { alert("Error: " + e.message); }
+    };
+
+    onAuthStateChanged(auth, async (user) => {
+        if (!user) { window.location.href = "admin-login.html"; return; }
+        
+        const adminSnap = await getDoc(doc(db, "admins", user.uid));
+        document.getElementById("welcome-message").textContent = `Welcome back, ${adminSnap.exists() ? adminSnap.data().name : "Admin"}!`;
+
+        const snap = await getDocs(query(collection(db, "orders"), orderBy("createdAt", "desc")));
+        allOrders = snap.docs.map(d => ({ ...d.data(), docId: d.id }));
+        applyFilter();
+    });
+
+    window.handleLogout = async () => {
+        await signOut(auth);
+        window.location.href = "admin-login.html";
+    };
+</script>
+</body>
+</html>
+

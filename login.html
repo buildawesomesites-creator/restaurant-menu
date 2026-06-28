@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title></title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Roboto:wght@400;700;900&display=swap');
+        body { font-family: 'Roboto', sans-serif; background: #f5f5f5; display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; }
+        .auth-container { background: #fff; padding: 30px; border-radius: 16px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); width: 90%; max-width: 400px; text-align: center; }
+        .shop-name { color: #28a745; font-size: 20px; font-weight: bold; margin-bottom: 20px; }
+        .input-group { position: relative; margin: 10px 0; }
+        input { width: 100%; padding: 12px; border: 1px solid #ddd; border-radius: 8px; box-sizing: border-box; }
+        
+        /* Updated Icon Style */
+        .toggle-password { 
+            position: absolute; right: 12px; top: 50%; transform: translateY(-50%); 
+            cursor: pointer; color: #666; font-size: 14px; user-select: none;
+        }
+        
+        .checkbox-group { 
+            text-align: left; margin: 10px 0; font-size: 14px; 
+            display: flex; align-items: center; gap: 8px; 
+        }
+        .checkbox-group input { width: auto; margin: 0; }
+        
+        button { width: 100%; padding: 12px; background: #28a745; color: white; border: none; border-radius: 8px; font-size: 16px; cursor: pointer; }
+        .link { margin-top: 15px; display: block; color: #666; text-decoration: underline; cursor: pointer; }
+    </style>
+</head>
+<body data-page="Login">
+
+<div class="auth-container">
+    <div class="shop-name"></div>
+    
+    <h2>Login</h2>
+    <input type="email" id="email" placeholder="Email Address">
+    
+    <div class="input-group">
+        <input type="password" id="password" placeholder="Password">
+        <span class="toggle-password" onclick="togglePassword()">👁️</span>
+    </div>
+
+    <div class="checkbox-group">
+        <input type="checkbox" id="rememberMe"> 
+        <label for="rememberMe">Keep me logged in</label>
+    </div>
+
+    <button onclick="handleLogin()">Login</button>
+    <a href="signup.html" class="link">Don't have an account? Sign Up</a>
+</div>
+
+<script type="module">
+    import { auth, db } from "./firebase-config.js";
+    import { signInWithEmailAndPassword, setPersistence, browserLocalPersistence, browserSessionPersistence } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-auth.js";
+    import { doc, setDoc, getDoc } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore.js";
+
+    window.togglePassword = () => {
+        const passwordField = document.getElementById('password');
+        const toggleIcon = document.querySelector('.toggle-password');
+        if (passwordField.type === 'password') {
+            passwordField.type = 'text';
+            toggleIcon.textContent = '🙈';
+        } else {
+            passwordField.type = 'password';
+            toggleIcon.textContent = '👁️';
+        }
+    };
+
+    window.handleLogin = async () => {
+        const email = document.getElementById('email').value.trim();
+        const password = document.getElementById('password').value;
+        const rememberMe = document.getElementById('rememberMe').checked;
+
+        if (!email || !password) {
+            alert("Please enter both email and password.");
+            return;
+        }
+
+        try {
+            await setPersistence(auth, rememberMe ? browserLocalPersistence : browserSessionPersistence);
+            const userCredential = await signInWithEmailAndPassword(auth, email, password);
+            const user = userCredential.user;
+            const fallbackName = email.split('@')[0];
+            const userRef = doc(db, "users", user.uid);
+            const snap = await getDoc(userRef);
+
+            if (!snap.exists() || !snap.data().name) {
+                await setDoc(userRef, { name: fallbackName, signedin: true }, { merge: true });
+            } else {
+                await setDoc(userRef, { signedin: true }, { merge: true });
+            }
+            window.location.href = "menu.html";
+        } catch (e) { 
+            console.error("Login Error:", e);
+            alert("Login failed: " + e.message); 
+        }
+    };
+</script>
+<script src="global-shop-config.js"></script>
+</body>
+</html>
+

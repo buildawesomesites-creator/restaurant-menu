@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Checkout - Finalize Order</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Roboto:wght@400;700;900&display=swap');
+        
+        body { font-family: 'Roboto', sans-serif; padding: 20px; background: #f8f9fa; padding-bottom: 120px; font-size: 18px; }
+        .container { background: #fff; padding: 25px; border-radius: 16px; max-width: 400px; margin: auto; box-shadow: 0 4px 15px rgba(0,0,0,0.05); }
+        h2 { color: #28a745; margin-top: 0; font-size: 26px; }
+        h4 { font-size: 20px; margin-bottom: 15px; }
+        
+        #order-summary { background: #fdfdfd; padding: 20px; border-radius: 12px; margin-bottom: 20px; border: 1px solid #eee; }
+        .summary-item { display: flex; justify-content: space-between; margin-bottom: 10px; font-size: 18px; }
+        .total-row { border-top: 2px solid #28a745; margin-top: 15px; padding-top: 15px; font-weight: 900; font-size: 22px; color: #28a745; }
+        
+        input { width: 100%; padding: 18px; margin: 10px 0; border: 2px solid #ddd; border-radius: 12px; box-sizing: border-box; font-size: 18px; }
+        input::placeholder { color: #999; }
+        
+        .btn-action { width: 100%; padding: 20px; background: #28a745; color: #fff; border: none; border-radius: 12px; font-weight: 700; font-size: 20px; cursor: pointer; margin-top: 10px; }
+        .btn-more { width: 100%; padding: 18px; background: #fff; color: #28a745; border: 2px solid #28a745; border-radius: 12px; font-weight: 700; font-size: 18px; cursor: pointer; margin-bottom: 20px; }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h2>Checkout</h2>
+    
+    <div id="order-summary"></div>
+
+    <form id="checkout-form">
+        <input type="text" id="full-name" placeholder="Full Name" required>
+        <input type="email" id="email" placeholder="Email Address" required>
+        <input type="tel" id="phone" placeholder="Contact Number (e.g. +65...)" pattern="^[0-9+\s\-]+$" title="Please enter a valid phone number" required>
+        <input type="text" id="address" placeholder="Shipping Address" required>
+        <input type="text" id="city" placeholder="City" required>
+        <input type="text" id="country" value="Vietnam" readonly>
+        
+        <button type="submit" class="btn-action">Confirm & Pay</button>
+    </form>
+</div>
+
+<script type="module">
+    import { auth, db } from "./firebase-config.js";
+    import { doc, getDoc, setDoc } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore.js";
+    import { onAuthStateChanged } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-auth.js";
+
+    const cart = JSON.parse(localStorage.getItem("cart")) || [];
+    const summaryDiv = document.getElementById("order-summary");
+    let totalAmount = 0;
+
+    if (cart.length > 0) {
+        let html = "<h4>Order Summary</h4>";
+        cart.forEach(item => {
+            totalAmount += (item.price * item.qty);
+            html += `<div class="summary-item"><span>${item.qty} x ${item.title}</span> <span>${(item.price * item.qty).toLocaleString()} đ</span></div>`;
+        });
+        html += `<div class="summary-item total-row"><span>Total</span> <span>${totalAmount.toLocaleString()} đ</span></div>`;
+        html += `<button type="button" class="btn-more" onclick="window.location.href='menu.html'">+ Add More Products</button>`;
+        summaryDiv.innerHTML = html;
+    }
+
+    onAuthStateChanged(auth, async (user) => {
+        if (user) {
+            const snap = await getDoc(doc(db, "users", user.uid));
+            if (snap.exists()) {
+                const data = snap.data();
+                document.getElementById("full-name").value = data.name || "";
+                document.getElementById("email").value = user.email || "";
+                document.getElementById("phone").value = data.phone || "";
+                document.getElementById("address").value = data.address || "";
+                document.getElementById("city").value = data.city || "";
+            }
+        } else {
+            const saved = JSON.parse(localStorage.getItem("guestInfo"));
+            if (saved) {
+                document.getElementById("full-name").value = saved.name || "";
+                document.getElementById("email").value = saved.email || "";
+                document.getElementById("phone").value = saved.phone || "";
+                document.getElementById("address").value = saved.address || "";
+                document.getElementById("city").value = saved.city || "";
+            }
+        }
+    });
+
+    document.getElementById("checkout-form").addEventListener("submit", async (e) => {
+        e.preventDefault();
+        const info = {
+            name: document.getElementById("full-name").value.toUpperCase(),
+            email: document.getElementById("email").value,
+            phone: document.getElementById("phone").value,
+            address: document.getElementById("address").value,
+            city: document.getElementById("city").value,
+            total: totalAmount 
+        };
+
+        localStorage.setItem("guestInfo", JSON.stringify(info));
+        if (auth.currentUser) {
+            await setDoc(doc(db, "users", auth.currentUser.uid), info, { merge: true });
+        }
+
+        window.location.href = "payment.html";
+    });
+</script>
+
+<script src="mobilebtn_footer.js"></script>
+</body>
+</html>
+

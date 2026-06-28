@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title></title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Roboto:wght@400;700;900&display=swap');
+        :root { --primary: #28a745; --bg: #f8f9fa; }
+        * { box-sizing: border-box; font-family: 'Roboto', sans-serif; -webkit-tap-highlight-color: transparent; }
+        body { background: var(--bg); padding-top: 80px; padding-bottom: 100px; margin: 0; }
+
+        /* Header */
+        #top-header { 
+            position: fixed; top: 0; left: 0; right: 0; height: 65px; 
+            background: #fff; display: flex; align-items: center; 
+            justify-content: space-between; padding: 0 20px; 
+            box-shadow: 0 2px 10px rgba(0,0,0,0.05); z-index: 1000;
+        }
+        .shop-name { font-size: 20px; font-weight: 700; }
+        .nav-right { display: flex; align-items: center; gap: 15px; }
+        
+        /* Pill Style Button */
+        .nav-pill {
+            padding: 8px 18px; background: #f0f0f0; color: #333;
+            border-radius: 50px; font-size: 15px; font-weight: 900;
+            text-transform: uppercase; text-decoration: none;
+            display: flex; align-items: center; gap: 6px; border: 1px solid #ddd;
+        }
+
+        .cart-container { max-width: 500px; margin: 0 auto; background: #fff; padding: 20px; border-radius: 16px; box-shadow: 0 2px 10px rgba(0,0,0,0.05); }
+        .cart-item { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; font-weight: 700; }
+        
+        /* Green Action Buttons */
+        .qty-btn { 
+            width: 46px; height: 46px; border: none; border-radius: 12px;
+            background: #28a745; color: #fff; font-size: 30px; font-weight: 900;
+            display: flex; align-items: center; justify-content: center; cursor: pointer;
+        }
+        
+        #checkout-btn { width: 100%; padding: 18px; border: none; border-radius: 14px; background: #28a745; color: #fff; font-size: 18px; font-weight: 700; margin-top: 20px; }
+    </style>
+</head>
+<body data-page="Cart">
+
+    <header id="top-header">
+        <div class="shop-name"></div>
+        <div class="nav-right">
+            <a href="login.html" id="user-nav" class="nav-pill">Login</a>
+            <div id="cart-icon-wrapper" style="font-size: 20px; cursor: pointer;">🛒 <span id="cart-count" style="font-weight:900; color:var(--primary);">0</span></div>
+        </div>
+    </header>
+
+    <div class="cart-container">
+        <h2>Your Cart</h2>
+        <div id="cart-items-list"></div>
+        <div id="cart-total" style="margin: 20px 0; font-size: 20px; font-weight: 900;"></div>
+        <button id="checkout-btn" onclick="generateCheckoutQR()" style="display:none;">Checkout</button>
+        <div id="empty-state" style="display:none; text-align:center;">
+            <p>Your cart is empty.</p>
+            <a href="menu.html" style="color:#28a745; font-weight:900;">Go to Menu</a>
+        </div>
+    </div>
+
+    <script type="module">
+        import { auth, db } from "./firebase-config.js";
+        import { onAuthStateChanged } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-auth.js";
+        import { doc, getDoc } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore.js";
+        
+        let cart = JSON.parse(localStorage.getItem("cart") || "[]");
+
+        // Auth Logic for Header Pill
+        onAuthStateChanged(auth, async (user) => {
+            const userNav = document.getElementById("user-nav");
+            if (user) {
+                const snap = await getDoc(doc(db, "users", user.uid));
+                const name = snap.exists() ? snap.data().name : "User";
+                userNav.innerHTML = `<span>🟢</span> ${name.split(' ')[0].toUpperCase()}`;
+                userNav.href = "profile.html";
+            }
+        });
+
+        function formatCurrency(amount) { return new Intl.NumberFormat('en-IN').format(amount) + ' đ'; }
+
+        function renderCart() {
+            const list = document.getElementById("cart-items-list");
+            const totalEl = document.getElementById("cart-total");
+            const checkoutBtn = document.getElementById("checkout-btn");
+            const emptyState = document.getElementById("empty-state");
+            const countEl = document.getElementById("cart-count");
+
+            countEl.textContent = cart.reduce((sum, i) => sum + i.qty, 0);
+
+            if (cart.length === 0) {
+                list.innerHTML = ""; totalEl.innerHTML = "";
+                checkoutBtn.style.display = "none"; emptyState.style.display = "block";
+                return;
+            }
+
+            emptyState.style.display = "none"; checkoutBtn.style.display = "block";
+            let total = 0;
+            list.innerHTML = cart.map(item => {
+                total += item.price * item.qty;
+                return `
+                    <div class="cart-item">
+                        <div>${item.title}</div>
+                        <div style="display:flex; align-items:center; gap:15px;">
+                            <button class="qty-btn" onclick="changeQty('${item.id}', -1)">-</button>
+                            <span style="font-size:20px; font-weight:900;">${item.qty}</span>
+                            <button class="qty-btn" onclick="changeQty('${item.id}', 1)">+</button>
+                            <span style="min-width:80px; text-align:right;">${formatCurrency(item.price * item.qty)}</span>
+                        </div>
+                    </div>`;
+            }).join('');
+            totalEl.innerHTML = `Total: ${formatCurrency(total)}`;
+        }
+
+        window.changeQty = (id, change) => {
+            const item = cart.find(i => i.id === id);
+            if (item) {
+                item.qty += change;
+                if (item.qty <= 0) cart = cart.filter(i => i.id !== id);
+                localStorage.setItem("cart", JSON.stringify(cart));
+                renderCart();
+            }
+        };
+
+        window.generateCheckoutQR = () => {
+            window.location.href = auth.currentUser ? "checkout.html" : "login.html";
+        };
+
+        renderCart();
+    </script>
+    <script src="mobilebtn_footer.js"></script>
+    <script src="global-shop-config.js"></script>
+</body>
+</html>
+

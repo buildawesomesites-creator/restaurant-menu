@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Complete Payment</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Roboto:wght@400;700;900&display=swap');
+        
+        body { font-family: 'Roboto', sans-serif; padding: 20px; background: #f8f9fa; text-align: center; font-size: 18px; padding-bottom: 150px; }
+        .container { background: #fff; padding: 25px; border-radius: 16px; max-width: 400px; margin: auto; box-shadow: 0 4px 15px rgba(0,0,0,0.05); }
+        h2 { color: #28a745; font-size: 24px; margin-top: 0; }
+        #qr-image { width: 100%; max-width: 300px; margin: 20px auto; border-radius: 12px; display: none; border: 2px solid #eee; }
+        .details { text-align: left; font-size: 16px; margin: 20px 0; padding: 15px; background: #f9f9f9; border-radius: 8px; }
+        .btn-action { width: 100%; padding: 18px; background: #28a745; color: #fff; border: none; border-radius: 12px; font-weight: 700; font-size: 18px; cursor: pointer; margin-top: 10px; }
+        .btn-back { display: block; width: 100%; padding: 15px; background: #333; color: #fff; text-decoration: none; border-radius: 12px; font-weight: 700; margin-top: 15px; margin-bottom: 20px; }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h2>Complete Payment</h2>
+    <div id="payment-details"></div>
+    <img id="qr-image" src="" alt="VietQR Code">
+    
+    <p>Please scan to pay. Include <b>Order ID</b> in your transfer note.</p>
+    
+    <button id="btn-verify" class="btn-action">I have paid (Verify Order)</button>
+    <a href="menu.html" class="btn-back">Back to Menu</a>
+</div>
+
+<script type="module">
+    import { auth, db } from "./firebase-config.js";
+    import { collection, addDoc, serverTimestamp } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore.js";
+    import { onAuthStateChanged } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-auth.js";
+
+    const info = JSON.parse(localStorage.getItem("guestInfo"));
+    const cart = JSON.parse(localStorage.getItem("cart")) || [];
+    const orderId = "DH" + Date.now().toString().slice(-6) + Math.floor(Math.random() * 100);
+
+    onAuthStateChanged(auth, async (user) => {
+        if (!info || !info.total) {
+            document.body.innerHTML = "<div class='container'><h2>No order found.</h2><a href='menu.html' class='btn-back'>Go to Menu</a></div>";
+            return;
+        }
+
+        const uid = user ? user.uid : "guest";
+        const email = user ? user.email : info.email; // Capture email
+        const statusLabel = user ? "Member" : "Guest";
+
+        document.getElementById("payment-details").innerHTML = `
+            <div class="details">
+                <b>Order ID:</b> ${orderId}<br>
+                <b>Customer:</b> ${info.name.toUpperCase()}<br>
+                <b>Total:</b> ${info.total.toLocaleString()} đ<br>
+                <b>Login Status:</b> ${statusLabel}
+            </div>
+        `;
+
+        const qrUrl = `https://img.vietqr.io/image/970415-106867636583-compact2.png?amount=${info.total}&addInfo=${orderId}&accountName=NGUYEN%20QUYNH%20ANH`;
+        const qrImg = document.getElementById("qr-image");
+        qrImg.style.display = "block";
+        qrImg.src = qrUrl;
+
+        const orderItems = cart.map(item => ({
+            title: item.title,
+            qty: item.qty,
+            price: item.price,
+            image: item.image || ""
+        }));
+
+        try {
+            await addDoc(collection(db, "orders"), {
+                orderId: orderId,
+                customer: { ...info, name: info.name.toUpperCase() },
+                items: orderItems,
+                total: info.total,
+                status: "pending",
+                createdAt: serverTimestamp(),
+                userId: uid,
+                userEmail: email // Added email field for querying in profile.html
+            });
+            console.log("Order saved for email:", email);
+        } catch (e) { console.error("Error saving order:", e); }
+    });
+
+    document.getElementById("btn-verify").addEventListener("click", () => {
+        alert("Thank you! Your order " + orderId + " has been sent for verification.");
+        localStorage.removeItem("cart");
+        localStorage.removeItem("guestInfo");
+        window.location.href = "menu.html";
+    });
+</script>
+
+<script src="mobilebtn_footer.js"></script>
+</body>
+</html>
+

@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title></title>
+    <style>
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #f5f5f5; display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; }
+        .auth-container { background: #fff; padding: 40px; border-radius: 12px; box-shadow: 0 10px 25px rgba(0,0,0,0.1); width: 100%; max-width: 360px; text-align: center; }
+        
+        /* Dynamic Brand Name */
+        .shop-name { color: #007bff; font-size: 1.2rem; font-weight: bold; margin-bottom: 5px; text-transform: uppercase; letter-spacing: 1px; }
+        
+        h2 { color: #333; margin-top: 0; margin-bottom: 25px; font-weight: 600; }
+        .input-group { position: relative; margin: 8px 0; }
+        input { width: 100%; padding: 14px; border: 1px solid #ddd; border-radius: 8px; box-sizing: border-box; font-size: 16px; transition: border 0.3s; }
+        input:focus { border-color: #007bff; outline: none; }
+        
+        /* Password Toggle */
+        .toggle-password { 
+            position: absolute; right: 12px; top: 50%; transform: translateY(-50%); 
+            cursor: pointer; color: #666; font-size: 16px; user-select: none;
+        }
+        
+        button { width: 100%; padding: 14px; background: #007bff; color: white; border: none; border-radius: 8px; font-size: 16px; font-weight: 600; cursor: pointer; margin-top: 15px; transition: background 0.3s; }
+        button:hover { background: #0056b3; }
+        
+        #toast { visibility: hidden; min-width: 250px; margin-left: -125px; background-color: #333; color: #fff; text-align: center; border-radius: 8px; padding: 16px; position: fixed; z-index: 1; left: 50%; bottom: 30px; }
+        #toast.show { visibility: visible; animation: fadein 0.5s, fadeout 0.5s 2.5s; }
+        @keyframes fadein { from {bottom: 0; opacity: 0;} to {bottom: 30px; opacity: 1;} }
+        @keyframes fadeout { from {bottom: 30px; opacity: 1;} to {bottom: 0; opacity: 0;} }
+    </style>
+</head>
+<body data-page="Admin Login">
+
+<div class="auth-container">
+    <div class="shop-name"></div>
+    <h2>Admin Login</h2>
+    <input type="email" id="email" placeholder="Email Address">
+    
+    <div class="input-group">
+        <input type="password" id="password" placeholder="Password">
+        <span class="toggle-password" onclick="togglePassword()">👁️</span>
+    </div>
+    
+    <button onclick="handleLogin()">Sign In</button>
+</div>
+
+<div id="toast"></div>
+
+<script type="module">
+    import { auth, db } from "./firebase-config.js";
+    import { signInWithEmailAndPassword } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-auth.js";
+    import { doc, getDoc } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore.js";
+
+    window.togglePassword = () => {
+        const passwordField = document.getElementById('password');
+        const toggleIcon = document.querySelector('.toggle-password');
+        if (passwordField.type === 'password') {
+            passwordField.type = 'text';
+            toggleIcon.textContent = '🙈';
+        } else {
+            passwordField.type = 'password';
+            toggleIcon.textContent = '👁️';
+        }
+    };
+
+    function showToast(message) {
+        const x = document.getElementById("toast");
+        x.textContent = message;
+        x.className = "show";
+        setTimeout(() => { x.className = x.className.replace("show", ""); }, 3000);
+    }
+
+    window.handleLogin = async () => {
+        const email = document.getElementById('email').value.trim();
+        const password = document.getElementById('password').value;
+
+        if (!email || !password) {
+            showToast("Please fill in all fields.");
+            return;
+        }
+
+        try {
+            const cred = await signInWithEmailAndPassword(auth, email, password);
+            const adminSnap = await getDoc(doc(db, "admins", cred.user.uid));
+
+            if (adminSnap.exists()) {
+                showToast("Login Successful! Redirecting...");
+                setTimeout(() => { window.location.href = "admin-dashboard.html"; }, 1000);
+            } else {
+                await auth.signOut();
+                showToast("Access Denied: Administrative privileges required.");
+            }
+        } catch (e) {
+            showToast("Login failed: Check your credentials.");
+        }
+    };
+</script>
+
+<script src="global-shop-config.js"></script>
+</body>
+</html>
+
